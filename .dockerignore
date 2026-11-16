@@ -1,0 +1,8 @@
+.git
+.env
+.cloudflared
+data
+backups
+test-artifacts
+node_modules
+*.log

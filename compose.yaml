@@ -1,0 +1,57 @@
+name: everafter
+services:
+  app:
+    image: everafter-local
+    build: .
+    init: true
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3001
+      DB_PATH: /app/data/wedding.sqlite
+    ports:
+      - "127.0.0.1:${PORT:-3001}:3001"
+    volumes:
+      - wedding-data:/app/data
+      - ./backups:/app/backups
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+  # Optional fixed URL. Set a dashboard-managed Tunnel's service to http://app:3001.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: [tunnel]
+    init: true
+    restart: unless-stopped
+    command: [tunnel, --no-autoupdate, run]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      app:
+        condition: service_healthy
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+  # Explicit one-time copy from the old local database into an EMPTY Docker volume.
+  import-local:
+    image: everafter-local
+    build: .
+    profiles: [tools]
+    environment:
+      DB_PATH: /app/data/wedding.sqlite
+    volumes:
+      - wedding-data:/app/data
+      - ./data:/source:ro
+    command: [node, scripts/backup.mjs, /source/wedding.sqlite, /app/data/wedding.sqlite]
+volumes:
+  wedding-data:

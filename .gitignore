@@ -1,0 +1,7 @@
+data/
+backups/
+.env
+.cloudflared/
+node_modules/
+*.log
+test-artifacts/
